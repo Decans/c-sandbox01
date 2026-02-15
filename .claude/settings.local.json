@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git -C /Users/zacharyreinke/Documents/Code/Claude Code Sandbox/c_sandbox01 log --oneline -10)",
-      "Bash(docker compose build:*)"
-    ]
-  }
-}

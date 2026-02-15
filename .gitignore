@@ -1,3 +1,4 @@
+.claude/settings.local.json
 build/
 *.o
 *.dSYM/
