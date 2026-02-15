@@ -15,6 +15,7 @@ A fully containerized C programming environment using Clang, Docker, and VS Code
   - [Debugging a C Program](#debugging-a-c-program)
 - [Using the Terminal (Standalone Workflow)](#using-the-terminal-standalone-workflow)
 - [Writing Your Own Code](#writing-your-own-code)
+- [Testing](#testing)
 - [Makefile Reference](#makefile-reference)
 - [Using Git](#using-git)
 - [Running This on Another Machine](#running-this-on-another-machine)
@@ -61,18 +62,24 @@ c_sandbox01/
 │   ├── settings.json          # Editor settings (formatting, C standard, etc.)
 │   └── tasks.json             # Build/Run/Clean tasks (Cmd+Shift+B)
 ├── src/
-│   └── main.c                 # Your C source files go here
+│   ├── main.c                 # Program entry point
+│   ├── greeter.h              # Header for greeting module
+│   └── greeter.c              # Greeting implementation
+├── test/
+│   └── test_greeter.c         # Unit tests for greeter module
+├── unity/                     # Unity test framework (git submodule)
 ├── build/                     # Compiled output (auto-created, git-ignored)
 ├── .gitignore                 # Ignores build artifacts, OS files, editor temps
 ├── Dockerfile                 # Defines the container image and installed tools
 ├── docker-compose.yml         # Configures the dev service and volume mounts
-├── Makefile                   # Build system: compile, run, clean targets
+├── Makefile                   # Build system: compile, run, clean, test targets
 └── README.md                  # This file
 ```
 
 ### Where your code lives
 
 - **Source code** goes in `src/`. Add `.c` and `.h` files here.
+- **Tests** go in `test/`. Each test file should include `unity.h` and the header for the module under test.
 - **Compiled output** goes in `build/`. This directory is created automatically by `make` and is git-ignored.
 
 ## What's Inside the Docker Container
@@ -145,6 +152,7 @@ Open the terminal with `` Ctrl+` `` (backtick) and run:
 ```bash
 make          # Compile (same as 'make build')
 make run      # Compile and run
+make test     # Compile and run unit tests
 make clean    # Delete all compiled files
 ```
 
@@ -338,6 +346,9 @@ docker compose run --rm dev make run
 # Just compile
 docker compose run --rm dev make
 
+# Run unit tests
+docker compose run --rm dev make test
+
 # Clean build artifacts
 docker compose run --rm dev make clean
 
@@ -352,6 +363,74 @@ docker compose run --rm dev valgrind ./build/main
 ```
 
 The `--rm` flag removes the container after it exits so you don't accumulate stopped containers.
+
+## Testing
+
+This project uses the [Unity](https://github.com/ThrowTheSwitch/Unity) unit testing framework, included as a git submodule in `unity/`.
+
+### Running tests
+
+```bash
+make test
+```
+
+This compiles all test files in `test/` along with the source modules (excluding `main.c`) and Unity, then runs the resulting test binary. Output looks like:
+
+```
+test/test_greeter.c:14:test_greeting_returns_expected_string:PASS
+
+-----------------------
+1 Tests 0 Failures 0 Ignored
+OK
+```
+
+### Writing a new test
+
+1. Create a test file in `test/`, e.g. `test/test_mymodule.c`:
+
+   ```c
+   #include "unity.h"
+   #include "mymodule.h"
+
+   void setUp(void) {}
+   void tearDown(void) {}
+
+   void test_something(void) {
+       TEST_ASSERT_EQUAL(42, my_function());
+   }
+
+   int main(void) {
+       UNITY_BEGIN();
+       RUN_TEST(test_something);
+       return UNITY_END();
+   }
+   ```
+
+2. Run `make test` — the Makefile automatically picks up all `.c` files in `test/`.
+
+### How the test target works
+
+The `make test` target compiles test files with:
+- `-Isrc` so test files can `#include` your module headers
+- `-Iunity/src` so test files can `#include "unity.h"`
+- All source files from `src/` except `main.c` (to avoid duplicate `main` symbols)
+- Unity's `unity.c` implementation
+
+The test binary is built at `build/test_runner`.
+
+### Cloning with tests
+
+Since Unity is a git submodule, clone with `--recurse-submodules`:
+
+```bash
+git clone --recurse-submodules <your-repo-url>
+```
+
+If you already cloned without it, initialize the submodule:
+
+```bash
+git submodule update --init
+```
 
 ## Writing Your Own Code
 
@@ -376,7 +455,7 @@ Every `.c` file in `src/` is compiled into a corresponding `.o` file in `build/`
 ### Compiler flags explained
 
 ```makefile
-CFLAGS = -Wall -Wextra -Werror -std=c17 -g
+CFLAGS = -Wall -Wextra -Werror -std=c17 -g -Isrc
 ```
 
 | Flag | Meaning |
@@ -386,6 +465,7 @@ CFLAGS = -Wall -Wextra -Werror -std=c17 -g
 | `-Werror` | Treat all warnings as errors (forces you to fix them) |
 | `-std=c17` | Use the C17 standard |
 | `-g` | Include debug symbols (required for GDB and Valgrind) |
+| `-Isrc` | Add `src/` to the include path so headers resolve with `#include "header.h"` |
 
 If `-Werror` is too strict while you're experimenting, remove it from the `CFLAGS` line in the Makefile.
 
@@ -448,8 +528,8 @@ This project is designed to be fully portable. Here's what someone needs to get 
 ### Steps
 
 ```bash
-# 1. Clone the repo
-git clone <your-repo-url>
+# 1. Clone the repo (--recurse-submodules pulls in the Unity test framework)
+git clone --recurse-submodules <your-repo-url>
 cd c_sandbox01
 
 # 2. Open in VS Code

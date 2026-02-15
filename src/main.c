@@ -1,6 +1,7 @@
 #include <stdio.h>
+#include "greeter.h"
 
 int main(void) {
-    printf("Hello from clang in Docker!\n");
+    printf("%s\n", get_greeting());
     return 0;
 }

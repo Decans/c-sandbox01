@@ -1,14 +1,20 @@
 CC = clang
-CFLAGS = -Wall -Wextra -Werror -std=c17 -g
+CFLAGS = -Wall -Wextra -Werror -std=c17 -g -Isrc
 
 SRC_DIR = src
 BUILD_DIR = build
+TEST_DIR = test
+UNITY_DIR = unity/src
 
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 TARGET = $(BUILD_DIR)/main
 
-.PHONY: build run clean
+TEST_SRCS = $(wildcard $(TEST_DIR)/*.c)
+LIB_SRCS = $(filter-out $(SRC_DIR)/main.c, $(SRCS))
+TEST_TARGET = $(BUILD_DIR)/test_runner
+
+.PHONY: build run clean test
 
 build: $(TARGET)
 
@@ -21,6 +27,13 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 
 run: build
 	./$(TARGET)
+
+test: $(TEST_TARGET)
+	./$(TEST_TARGET)
+
+$(TEST_TARGET): $(TEST_SRCS) $(LIB_SRCS) $(UNITY_DIR)/unity.c
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(UNITY_DIR) -o $@ $^
 
 clean:
 	rm -rf $(BUILD_DIR)
